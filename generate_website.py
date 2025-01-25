@@ -1,4 +1,5 @@
 import os
+import shutil  # probably should have been using this but whatever
 import json
 
 
@@ -33,13 +34,15 @@ def main():
         data_str = json.dumps(json.load(f))
     with open('template.html', 'r') as f:
         template_used = f.read().replace('{!{DATA}!}', data_str, 1)
-    if not os.path.isdir(os.path.join('exports', 'html')):
-        os.mkdir(os.path.join('exports', 'html'))
-    html_file_path = os.path.join('exports', 'html', inp.removesuffix('.json') + '.html')
+    if not os.path.isdir(os.path.join('exports', 'web')):
+        os.mkdir(os.path.join('exports', 'web'))
+    if not os.path.isfile(os.path.join('exports', 'web', 'cytoscape.min.js')):
+        shutil.copyfile('cytoscape.min.js', os.path.join('exports', 'web', 'cytoscape.min.js'))
+    html_file_path = os.path.join('exports', 'web', inp.removesuffix('.json') + '.html')
     with open(html_file_path, 'w') as f:
         f.write(template_used)
     print(f'successfully exported as {html_file_path}')
-    print(f'you may want to run "python3 -m http.server 8080 -d exports/html" to be able to access it easily')
+    print(f'you may want to run "python3 -m http.server 8080 -d exports/web" to be able to access it easily')
 
 
 if __name__ == '__main__':

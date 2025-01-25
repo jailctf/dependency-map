@@ -1,6 +1,95 @@
 <html>
     <head>
+        <style>
+            /* http://meyerweb.com/eric/tools/css/reset/ 
+               v2.0 | 20110126
+               License: none (public domain)
+            */
+            
+            html, body, div, span, applet, object, iframe,
+            h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+            a, abbr, acronym, address, big, cite, code,
+            del, dfn, em, img, ins, kbd, q, s, samp,
+            small, strike, strong, sub, sup, tt, var,
+            b, u, i, center,
+            dl, dt, dd, ol, ul, li,
+            fieldset, form, label, legend,
+            table, caption, tbody, tfoot, thead, tr, th, td,
+            article, aside, canvas, details, embed, 
+            figure, figcaption, footer, header, hgroup, 
+            menu, nav, output, ruby, section, summary,
+            time, mark, audio, video {
+            	margin: 0;
+            	padding: 0;
+            	border: 0;
+            	font-size: 100%;
+            	font: inherit;
+            	vertical-align: baseline;
+            }
+            /* HTML5 display-role reset for older browsers */
+            article, aside, details, figcaption, figure, 
+            footer, header, hgroup, menu, nav, section {
+            	display: block;
+            }
+            body {
+            	line-height: 1;
+            }
+            ol, ul {
+            	list-style: none;
+            }
+            blockquote, q {
+            	quotes: none;
+            }
+            blockquote:before, blockquote:after,
+            q:before, q:after {
+            	content: '';
+            	content: none;
+            }
+            table {
+            	border-collapse: collapse;
+            	border-spacing: 0;
+            }
+        </style>
+        <style>
+            body,html {
+                width: 100%;
+                height: 100%;
+                padding: 0px;
+                margin: 0px;
+            }
+            #graph {
+                width: 100%;
+                height: calc(100% - 6em);
+                background-color: #313338;
+            }
+            #notes {
+                width: 100%;
+                height: 6em;
+                background-color: #2b2d31;
+            }
+        </style>
     </head>
     <body>
+        <div id='graph'></div>
+        <div id='notes'></div>
+
+        <script src="cytoscape.min.js"></script>
+        <script>
+            var cy = cytoscape({
+                container: document.getElementById('graph'),
+                elements: [ // list of graph elements to start with
+                    { // node a
+                        data: { id: 'a' }
+                    },
+                    { // node b
+                        data: { id: 'b' }
+                    },
+                    { // edge ab
+                        data: { id: 'ab', source: 'a', target: 'b' }
+                    }
+                ],
+            });
+            // todo finish
+        </script>
     </body>
 </html>
