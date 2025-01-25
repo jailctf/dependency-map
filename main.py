@@ -1,5 +1,3 @@
-import find_deps
-import generate_website
 import re
 import os
 import time
@@ -115,8 +113,14 @@ def main():
             })
     if not os.path.isdir('exports'):
         os.mkdir('exports')
-    with open(os.path.join('exports', f'{round(time.time())}-{selected_ver}.json'), 'w') as f:
+    if not os.path.isdir(os.path.join('exports', 'json')):
+        os.mkdir(os.path.join('exports', 'json'))
+    exp_fname = os.path.join('exports', 'json', f'{selected_ver}.json')
+    with open(exp_fname, 'w') as f:
         f.write(json.dumps(results, indent=4))
+    print()
+    print(f'successfully exported as {exp_fname}')
+    print(f'you may want to run generate_website.py to generate a visualized version of this')
 
 
 if __name__ == "__main__":
