@@ -1,12 +1,30 @@
 import find_deps
 import generate_website
+import re
 import os
+import time
+import ast
 import itertools
+import json
 import subprocess
 
 
-def get_latest_cpython():
-    pass
+DEEP_CHECK = False  # finds all methods and their dependencies too ? maybe idk, but this will compile python
+
+
+# dumb regex that !mostly! fits https://docs.python.org/3/reference/grammar.html (see import_stmt)
+# warning that these are NOT r strings, these are f strings
+# some of these might be wrong if the import is a fake import that is in a multiline comment or smth
+name = f'(?:[A-Za-z_][A-Za-z_0-9]*)'
+dotted_name = f'{name}(?:\\.{name})*'
+dotted_as_name = f'{dotted_name}(?:\\s+as\\s+{name})?'
+dotted_as_name = f'{dotted_as_name}(?:\\s*,\\s*{dotted_as_name})*'
+import_from_as_name = f'{name}(?:\\s+as\\s+{name})?'
+import_from_as_names = f'{import_from_as_name}(?:\\s*,\\s*{import_from_as_name})*'
+import_from_targets = f'(?:\\*|{import_from_as_names}|\\(\\s*{import_from_as_names}\\s*\\))'
+import_from = f'from\\s+(?:\\.+|\\.*\\s*{dotted_name})\\s+import\\s+{import_from_targets}'
+import_name = f'import\\s+{dotted_as_name}'
+import_finder_regex = f'(?:{import_from}|{import_name})'
 
 
 def remove_most_leading_zeros(string: str) -> str:
@@ -48,7 +66,7 @@ def main():
     print('\n'.join(['* ' + ', '.join(lv) for lv in versions]))
     selected_ver = '?'
     while True:
-        print('\nchoose a version\n(input nothing for latest version, don\'t recommend)\n')
+        print('\nchoose a version\n(input nothing for latest version)\n')
         selected_ver = input('> ')
         if selected_ver == '':
             selected_ver = versions[-1][-1]
@@ -57,7 +75,48 @@ def main():
             continue
         break
     switch_to_tag(selected_ver)
-    # todo finish script
+    if DEEP_CHECK:
+        print('time to build cpython')
+        print('this is not finished. todo do this')
+        exit(1)
+    lib_filenames = os.listdir('cpython/Lib')
+    py_files = [f[:-3] for f in sorted(lib_filenames) if f.endswith('.py')]  # no .py extension on strings btw
+    print('found python modules:', ', '.join(py_files))
+    results = {'deps': {}, 'python-version': selected_ver, 'export-timestamp': round(time.time())}
+    for py_modname in py_files:
+        fpath = os.path.join('cpython/Lib/', py_modname + '.py')
+        print(f'searching {fpath}')
+        with open(fpath, 'r') as f:
+            file_lines = f.read().splitlines(keepends=False)
+        all_finds = []  # [(line_num, is_toplvl, import_text), ...]
+        for index, line in enumerate(file_lines):
+            toplvl_finds = re.findall(r'^' + import_finder_regex, line)
+            all_finds.extend([(index, True, imp) for imp in toplvl_finds])
+            inner_finds = re.findall(r'^\s+' + import_finder_regex, line)
+            all_finds.extend([(index, False, imp.lstrip()) for imp in inner_finds])
+        results['deps'][py_modname] = []
+        for line_num, is_toplvl, import_text in all_finds:
+            tree = ast.parse(import_text)
+            is_import_from = isinstance(tree.body[0], ast.ImportFrom)
+            more_details = {}
+            if is_import_from:
+                more_details['module_name'] = tree.body[0].module
+                more_details['names'] = [(alias_node.name, alias_node.name if alias_node.asname is None else alias_node.asname) 
+                                         for alias_node in tree.body[0].names]
+            else:
+                more_details['modpaths'] = [(alias_node.name, alias_node.name if alias_node.asname is None else alias_node.asname) 
+                                            for alias_node in tree.body[0].names]
+            results['deps'][py_modname].append({
+                'toplvl': is_toplvl,
+                'import_text': import_text,
+                'line_num': line_num,
+                'is_import_from': is_import_from,
+                **more_details
+            })
+    if not os.path.isdir('exports'):
+        os.mkdir('exports')
+    with open(os.path.join('exports', f'{round(time.time())}-{selected_ver}.json'), 'w') as f:
+        f.write(json.dumps(results, indent=4))
 
 
 if __name__ == "__main__":
