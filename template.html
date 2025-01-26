@@ -49,6 +49,9 @@
             	border-collapse: collapse;
             	border-spacing: 0;
             }
+            a {
+                color: #72D9DE;
+            }
         </style>
         <style>
             body,html {
@@ -56,26 +59,56 @@
                 height: 100%;
                 padding: 0px;
                 margin: 0px;
+                overflow: hidden;
+            }
+            body {
+                display: flex;
+                flex-direction: row;
             }
             #graph {
-                width: 100%;
-                height: calc(100% - 6em);
+                width: 80%;
+                height: 100%;
                 background-color: #313338;
             }
             #notes {
-                width: 100%;
-                height: 6em;
+                width: calc(20% - 13px);
+                height: 100%;
                 background-color: #2b2d31;
+                padding-left: 13px;
+            }
+            h1, p {
+                color: white;
+                font-family: Helvetica;
+            }
+            h1 {
+                margin: 13px;
+                margin-left: 0px;
+                padding-top: 4px;
+                padding-bottom: 4px;
+                padding-left: 7px;
+                border-left: 3px solid white;
+                font-weight: bold;
             }
         </style>
     </head>
     <body>
         <div id='graph'></div>
-        <div id='notes'></div>
+        <div id='notes'>
+            <h1>cpython module dependencies</h1>
+            <p>made by <a href="https://github.com/quasar098" target="_blank">quasar098</a></p>
+            <br>
+            <p>blue = dependents (___ imports it)</p>
+            <br>
+            <p>red = dependencies (it imports ___)</p>
+        </div>
 
         <script src="cytoscape.min.js"></script>
-        <script src="https://unpkg.com/webcola/WebCola/cola.min.js"></script> 
+        <script src="https://unpkg.com/webcola/WebCola/cola.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/gh/cytoscape/cytoscape.js-cose-bilkent@1.6.5/cytoscape-cose-bilkent.js"></script>
         <script src="cytoscape-cola.js"></script>
+        <script src="https://unpkg.com/layout-base/layout-base.js"></script>
+        <script src="https://unpkg.com/cose-base/cose-base.js"></script>
+        <script src="https://unpkg.com/cytoscape-fcose/cytoscape-fcose.js"></script>
         <script>
             let data = JSON.parse(`{!{DATA}!}`)  // this gets replaced with the actual data
             // todo: fix injection/xss/whatever with backtick
@@ -85,7 +118,9 @@
             // nodes
             let all_module_names = [];
             for (let module_name of Object.keys(data['deps'])) {
-                all_module_names.push(module_name);
+                if (data['deps'][module_name].length != 0) {
+                    all_module_names.push(module_name);
+                }
                 for (let imp of data['deps'][module_name]) {
                     if (!imp.is_import_from) {
                         for (let modpath of imp.modpaths) {
@@ -101,8 +136,6 @@
             }
 
             // edges
-            edge_template = {
-            }
             for (let module_name of Object.keys(data['deps'])) {
                 for (let imp of data['deps'][module_name]) {
                     if (!imp.is_import_from) {
@@ -110,10 +143,11 @@
                             // [og_name, renamed]
                             let [og_name, renamed] = modpath;
                             elements.push({
-                                ...edge_template, 
-                                data: {'id': imp.import_text + '', 'source': module_name, 'target': og_name, 'label': imp.line_text}
+                                data: {'id': imp.import_text + '' + imp.line_num, 'source': module_name, 'target': og_name, 'label': imp.import_text}
                             });
                         }
+                    } else {
+                        elements.push({data: {'id': imp.import_text + '' + imp.line_num, 'source': module_name, 'target': imp.module_name, 'label': imp.import_text}})
                     }
                 }
             }
@@ -122,34 +156,155 @@
             //cytoscape.use(cola);
             var cy = cytoscape({
                 layout: {
-                    'name': 'cola',
-                    refresh: 2,
-                    maxSimulationTime: 15000,
-                    nodeSpacing: () => 16,
-                    randomize: true,
+                    //'name': 'breadthfirst',
+                    'name': 'random',
+                    //animate: false,
+
+                    // random
+                    transform: ((node, pos) => ({x: pos.x*30, y: pos.y*30})),
+
+                    // breadthfirst
+                    //directed: true,
+                    //padding: 30,
+                    //avoidOverlap: true,
+                    //nodeDimensionsIncludeLabels: true,
+                    //spacingFactor: 1.5,
+                    
+                    // fcose
+                    //nodeSeparation: 200,
+                    //nodeRepulsion: () => 40000,
+                    //idealEdgeLength: () => 150,
+                    //animationDuration: 300,
+
+                    // cola
+                    // maxSimulationTime: 100000,
+                    // nodeSpacing: () => 50,
+                    // flow: { axis: 'y', minSeparation: 100 },
+                    // nodeDimensionsIncludeLabels: true,
+                    // randomize: true,
+                    // edgeLength: 400,
                 },
                 container: document.getElementById('graph'),
                 elements: elements,
                 wheelSensitivity: 0.5,
                 style: [
                     {
+                        selector: 'core',
+                        style: {
+                            'active-bg-opacity': 0,
+                            'active-bg-color': '#ff00ff',
+                        }
+                    },
+                    {
+                        selector: 'node:selected',
+                        style: {
+                            'background-color': '#ffffff',
+                            'border-width': '0px', // Remove any border width
+                            'border-color': 'transparent', // Optionally make border color transparent
+                            'outline-width': '0px', // Remove any outline if applied
+                            'overlay-opacity': 0
+                        }
+                    },
+                    {
+                        selector: 'node:active',
+                        style: {
+                            'background-color': '#ffffff',
+                            'border-width': '0px', // Remove any border width
+                            'border-color': 'transparent', // Optionally make border color transparent
+                            'outline-width': '0px', // Remove any outline if applied
+                            'overlay-opacity': 0
+                        }
+                    },
+                    {
                         selector: 'node',
                         style: {
-                            'label': 'data(id)'
+                            'label': 'data(id)',
+                            'color': '#00ff00',
+                            'font-size': '100px',
+                            'width': '30px',
+                            'height': '30px',
+                        }
+                    },
+                    {
+                        selector: 'node.highlighted',
+                        style: {
+                            'background-color': '#ffffff',
+                            'font-size': '300px',
+                            'color': '#00ff00',
+                            'width': '200px',
+                            'height': '200px',
+                        }
+                    },
+                    {
+                        selector: 'node.highlighted-child',
+                        style: {
+                            'font-size': '300px',
+                            'background-color': '#ff0000',
+                            'width': '200px',
+                            'height': '200px',
+                        }
+                    },
+                    {
+                        selector: 'node.highlighted-parent',
+                        style: {
+                            'font-size': '300px',
+                            'background-color': '#0000ff',
+                            'width': '200px',
+                            'height': '200px',
                         }
                     },
                     {
                         selector: 'edge',
                         style: {
-                            'label': 'data(label)',
-                            'curve-style': 'bezier',
-                            'control-point-step-size': 50,
+                            'curve-style': 'round-taxi',
+                            'taxi-direction': 'downward',
                             'target-arrow-shape': 'vee',
                             'arrow-scale': 3,
+                            //'edge-text-rotation': 'autorotate',
+                            //'control-point-step-size': 50,
+                            'color': 'white',
+                        }
+                    },
+                    {
+                        selector: 'edge.highlighted-child',
+                        style: {
+                            'line-color': '#ff0000', 
+                            'target-arrow-color': '#ff0000',
+                            'source-arrow-color': '#ff0000',
+                            'width': 20, // Optional: Make edges thicker
+                            'z-index': 9999,
+                        }
+                    },
+                    {
+                        selector: 'edge.highlighted-parent',
+                        style: {
+                            'line-color': '#0000ff',
+                            'target-arrow-color': '#0000ff',
+                            'source-arrow-color': '#0000ff',
+                            'width': 20,
+                            'z-index': 9999,
                         }
                     }
                 ]
             });
+
+            cy.on('tapstart', 'node', (evt) => {
+                const node = evt.target;
+                
+                cy.edges().removeClass('highlighted-parent');
+                cy.edges().removeClass('highlighted-child');
+                cy.nodes().removeClass('highlighted');
+                cy.nodes().removeClass('highlighted-child');
+                cy.nodes().removeClass('highlighted-parent');
+
+                node.addClass('highlighted');
+                node.connectedEdges().filter(edge => edge.source().id() === node.id()).addClass('highlighted-child');
+                node.connectedEdges().filter(edge => edge.target().id() === node.id()).addClass('highlighted-parent');
+                node.connectedEdges().filter(edge => edge.source().id() === node.id()).map(edge => edge.target().addClass('highlighted-child'));
+                node.connectedEdges().filter(edge => edge.target().id() === node.id()).map(edge => edge.source().addClass('highlighted-parent'));
+            });
+
+            cy.on('tapend', 'node', (evt) => console.log(123, evt));
 
             // todo finish
         </script>
