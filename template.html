@@ -74,21 +74,83 @@
         <div id='notes'></div>
 
         <script src="cytoscape.min.js"></script>
+        <script src="https://unpkg.com/webcola/WebCola/cola.min.js"></script> 
+        <script src="cytoscape-cola.js"></script>
         <script>
-            var cy = cytoscape({
-                container: document.getElementById('graph'),
-                elements: [ // list of graph elements to start with
-                    { // node a
-                        data: { id: 'a' }
-                    },
-                    { // node b
-                        data: { id: 'b' }
-                    },
-                    { // edge ab
-                        data: { id: 'ab', source: 'a', target: 'b' }
+            let data = JSON.parse(`{!{DATA}!}`)  // this gets replaced with the actual data
+            // todo: fix injection/xss/whatever with backtick
+
+            let elements = [];
+
+            // nodes
+            let all_module_names = [];
+            for (let module_name of Object.keys(data['deps'])) {
+                all_module_names.push(module_name);
+                for (let imp of data['deps'][module_name]) {
+                    if (!imp.is_import_from) {
+                        for (let modpath of imp.modpaths) {
+                            all_module_names.push(modpath[0]);
+                        }
+                    } else {
+                        all_module_names.push(imp.module_name);
                     }
-                ],
+                }
+            }
+            for (let module_name of [... new Set(all_module_names)]) {
+                elements.push({'data': {'id': module_name}});
+            }
+
+            // edges
+            edge_template = {
+            }
+            for (let module_name of Object.keys(data['deps'])) {
+                for (let imp of data['deps'][module_name]) {
+                    if (!imp.is_import_from) {
+                        for (let modpath of imp.modpaths) {
+                            // [og_name, renamed]
+                            let [og_name, renamed] = modpath;
+                            elements.push({
+                                ...edge_template, 
+                                data: {'id': imp.import_text + '', 'source': module_name, 'target': og_name, 'label': imp.line_text}
+                            });
+                        }
+                    }
+                }
+            }
+            
+            //console.log(cola);
+            //cytoscape.use(cola);
+            var cy = cytoscape({
+                layout: {
+                    'name': 'cola',
+                    refresh: 2,
+                    maxSimulationTime: 15000,
+                    nodeSpacing: () => 16,
+                    randomize: true,
+                },
+                container: document.getElementById('graph'),
+                elements: elements,
+                wheelSensitivity: 0.5,
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'label': 'data(id)'
+                        }
+                    },
+                    {
+                        selector: 'edge',
+                        style: {
+                            'label': 'data(label)',
+                            'curve-style': 'bezier',
+                            'control-point-step-size': 50,
+                            'target-arrow-shape': 'vee',
+                            'arrow-scale': 3,
+                        }
+                    }
+                ]
             });
+
             // todo finish
         </script>
     </body>

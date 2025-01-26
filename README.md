@@ -12,7 +12,7 @@ if we are in module A and we want to get module B on python version 3.X.X, we ca
 
 ## todo
 
-- website / online graph
-- api
+- exclude multiline strings
+- api? idk what this would entail
 - easy script to run to get module dependencies for non-builtin module
 

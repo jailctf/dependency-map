@@ -36,8 +36,8 @@ def main():
         template_used = f.read().replace('{!{DATA}!}', data_str, 1)
     if not os.path.isdir(os.path.join('exports', 'web')):
         os.mkdir(os.path.join('exports', 'web'))
-    if not os.path.isfile(os.path.join('exports', 'web', 'cytoscape.min.js')):
-        shutil.copyfile('cytoscape.min.js', os.path.join('exports', 'web', 'cytoscape.min.js'))
+    shutil.copyfile('cytoscape.min.js', os.path.join('exports', 'web', 'cytoscape.min.js'))
+    shutil.copyfile('cytoscape-cola.js', os.path.join('exports', 'web', 'cytoscape-cola.js'))
     html_file_path = os.path.join('exports', 'web', inp.removesuffix('.json') + '.html')
     with open(html_file_path, 'w') as f:
         f.write(template_used)
