@@ -25,7 +25,7 @@ import_name = f'import\\s+{dotted_as_name}'
 import_finder_regex = f'(?:{import_from}|{import_name})'
 
 # this is an r string however !!!
-delete_comments_regex = r'""".*?"""'
+delete_comments_regex = r'(?:""".*?"""|\'\'\'.*?\'\'\')'
 
 
 def remove_most_leading_zeros(string: str) -> str:
@@ -88,7 +88,7 @@ def main():
         fpath = os.path.join('cpython/Lib/', py_modname + '.py')
         print(f'searching {fpath}')
         with open(fpath, 'r') as f:
-            file_lines = re.sub(delete_comments_regex, '', f.read(), re.S | re.MULTILINE).splitlines(keepends=False)
+            file_lines = re.sub(delete_comments_regex, lambda m: m[0].count('\n')*'\n', f.read(), flags=re.S | re.MULTILINE).splitlines(keepends=False)
         all_finds = []  # [(line_num, is_toplvl, import_text), ...]
         for index, line in enumerate(file_lines):
             toplvl_finds = re.findall(r'^' + import_finder_regex, line)
@@ -110,7 +110,7 @@ def main():
             results['deps'][py_modname].append({
                 'toplvl': is_toplvl,
                 'import_text': import_text,
-                'line_num': line_num,
+                'line_num': line_num+1,
                 'is_import_from': is_import_from,
                 **more_details
             })

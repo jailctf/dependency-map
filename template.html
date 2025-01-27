@@ -75,6 +75,7 @@
                 height: 100%;
                 background-color: #2b2d31;
                 padding-left: 13px;
+                overflow-y: auto;
             }
             h1, p {
                 color: white;
@@ -89,17 +90,37 @@
                 border-left: 3px solid white;
                 font-weight: bold;
             }
+            .code-reference-element {
+                margin-right: 13px;
+            }
+            .code-reference-element:hover {
+                background-color: #ffffff33;
+            }
+            .code-reference-element .line {
+                font-family: "Courier New";
+            }
+            .code-reference-element .where {
+                font-style: italic;
+                margin-top: 10px;
+                border-bottom: 1px solid #aaa;
+            }
         </style>
     </head>
     <body>
         <div id='graph'></div>
         <div id='notes'>
-            <h1>cpython module dependencies</h1>
+            <h1>cpython {!{VERSION}!} module dependencies</h1>
             <p>made by <a href="https://github.com/quasar098" target="_blank">quasar098</a></p>
             <br>
             <p>blue = dependents (___ imports it)</p>
-            <br>
             <p>red = dependencies (it imports ___)</p>
+            <br>
+            <p>* = probably inside a function</p>
+            <br>
+            <h1>references to</h1>
+            <div id='parents'></div>
+            <h1>references from</h1>
+            <div id='children'></div>
         </div>
 
         <script src="cytoscape.min.js"></script>
@@ -142,11 +163,13 @@
                         for (let modpath of imp.modpaths) {
                             // [og_name, renamed]
                             let [og_name, renamed] = modpath;
+                            if (og_name == module_name) continue;
                             elements.push({
                                 data: {'id': imp.import_text + '' + imp.line_num, 'source': module_name, 'target': og_name, 'label': imp.import_text}
                             });
                         }
                     } else {
+                        if (imp.module_name == module_name) continue;
                         elements.push({data: {'id': imp.import_text + '' + imp.line_num, 'source': module_name, 'target': imp.module_name, 'label': imp.import_text}})
                     }
                 }
@@ -229,7 +252,7 @@
                         selector: 'node.highlighted',
                         style: {
                             'background-color': '#ffffff',
-                            'font-size': '300px',
+                            'font-size': '500px',
                             'color': '#00ff00',
                             'width': '200px',
                             'height': '200px',
@@ -238,7 +261,7 @@
                     {
                         selector: 'node.highlighted-child',
                         style: {
-                            'font-size': '300px',
+                            'font-size': '400px',
                             'background-color': '#ff0000',
                             'width': '200px',
                             'height': '200px',
@@ -247,7 +270,7 @@
                     {
                         selector: 'node.highlighted-parent',
                         style: {
-                            'font-size': '300px',
+                            'font-size': '400px',
                             'background-color': '#0000ff',
                             'width': '200px',
                             'height': '200px',
@@ -288,25 +311,82 @@
                 ]
             });
 
-            cy.on('tapstart', 'node', (evt) => {
-                const node = evt.target;
-                
+            let children = document.getElementById('children');
+            let parents = document.getElementById('parents');
+            
+            // code reference element
+            function cre(node_name, line_num, line_text, toplvl) {
+                let filename = node_name + '.py';
+                let elm = document.createElement('div');
+                elm.classList.add('code-reference-element');
+
+                let where = document.createElement('p');
+                let whereLink = document.createElement('a');
+                whereLink.innerText = filename;
+                whereLink.setAttribute('href', `https://github.com/python/cpython/blob/v${data['python-version']}/Lib/${filename}#L${line_num}`)  // epic injection area
+                whereLink.setAttribute('target', '_blank');
+                //whereLink.addEventListener('click', () => {select(cy.nodes().filter(n => n.id() == node_name))})
+                where.classList.add('where');
+                where.appendChild(whereLink);
+                where.append(', line ' + line_num + (toplvl ? '' : '*'))
+                elm.appendChild(where);
+
+                let line = document.createElement('p');
+                line.classList.add('line');
+                line.innerText = line_text;
+                elm.appendChild(line);
+
+                return elm;
+            }
+
+            function select(node) {
                 cy.edges().removeClass('highlighted-parent');
                 cy.edges().removeClass('highlighted-child');
                 cy.nodes().removeClass('highlighted');
                 cy.nodes().removeClass('highlighted-child');
                 cy.nodes().removeClass('highlighted-parent');
 
+                while (children.firstChild) {
+                    children.removeChild(children.lastChild);
+                }
+                while (parents.firstChild) {
+                    parents.removeChild(parents.lastChild);
+                }
+
                 node.addClass('highlighted');
-                node.connectedEdges().filter(edge => edge.source().id() === node.id()).addClass('highlighted-child');
-                node.connectedEdges().filter(edge => edge.target().id() === node.id()).addClass('highlighted-parent');
-                node.connectedEdges().filter(edge => edge.source().id() === node.id()).map(edge => edge.target().addClass('highlighted-child'));
-                node.connectedEdges().filter(edge => edge.target().id() === node.id()).map(edge => edge.source().addClass('highlighted-parent'));
+                let child_edges = node.connectedEdges().filter(edge => edge.source().id() === node.id());
+                let parent_edges = node.connectedEdges().filter(edge => edge.target().id() === node.id());
+                child_edges.addClass('highlighted-child');
+                parent_edges.addClass('highlighted-parent');
+                child_edges.map(edge => edge.target().addClass('highlighted-child'));
+                parent_edges.map(edge => edge.source().addClass('highlighted-parent'));
+
+                if (Object.keys(data['deps']).includes(node.id())) {
+                    for (let imp of data['deps'][node.id()]) {
+                        children.appendChild(cre(node.id(), imp.line_num, imp.import_text, imp.toplvl));
+                    }
+                }
+
+                for (let other_import_me of [...new Set(parent_edges.map(node => node.source().data()['id']))]) {
+                    for (let imp of data['deps'][other_import_me]) {
+                        if (imp.is_import_from) {
+                            if (imp.module_name == node.id()) {
+                                parents.appendChild(cre(other_import_me, imp.line_num, imp.import_text, imp.toplvl));
+                            }
+                        } else {
+                            if (imp.modpaths.map(m => m[0] == node.id()).indexOf(true)+1) {  // cursed a bit
+                                parents.appendChild(cre(other_import_me, imp.line_num, imp.import_text, imp.toplvl));
+                            }
+                        }
+                    }
+                }
+            }
+
+            cy.on('tapstart', 'node', (evt) => {
+                const node = evt.target;
+                
+                select(node);
             });
-
-            cy.on('tapend', 'node', (evt) => console.log(123, evt));
-
-            // todo finish
         </script>
     </body>
 </html>

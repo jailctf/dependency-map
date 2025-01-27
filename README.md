@@ -12,10 +12,11 @@ if we are in module A and we want to get module B on python version 3.X.X, we ca
 
 ## todo
 
-- ctrl-f for stuff
-- show import line text data on the notes
+- go into folders of cpython/Lib
+- ctrl-f for nodes
 - better graph
-- exclude multiline strings
+- click on whatever.py to select the node
+- link to github for full source
 - api? idk what this would entail
 - easy script to run to get module dependencies for non-builtin module
 - deep mode

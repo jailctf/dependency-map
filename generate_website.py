@@ -33,7 +33,7 @@ def main():
     with open(os.path.join('exports', 'json', inp), 'r') as f:
         data_str = json.dumps(json.load(f))
     with open('template.html', 'r') as f:
-        template_used = f.read().replace('{!{DATA}!}', data_str, 1)
+        template_used = f.read().replace('{!{DATA}!}', data_str, 1).replace('{!{VERSION}!}', inp.removesuffix('.json'), 1)
     if not os.path.isdir(os.path.join('exports', 'web')):
         os.mkdir(os.path.join('exports', 'web'))
     shutil.copyfile('cytoscape.min.js', os.path.join('exports', 'web', 'cytoscape.min.js'))
