@@ -104,9 +104,69 @@
                 margin-top: 10px;
                 border-bottom: 1px solid #aaa;
             }
+            #search {
+                position: absolute;
+                max-width: 20%;
+                padding-right: 16px;
+                padding-bottom: 12px;
+                z-index: 10000;
+                background-color: #2b2d31;
+                padding-left: 13px;
+                display: flex;
+                flex-direction: column;
+            }
+            #search-input {
+                border-radius: 0px;
+                border: 1px solid black;
+                outline: none;
+                margin-top: 12px;
+                margin-bottom: 12px;
+            }
+            #search-input:focus {
+                background-color: #b1ddf1;
+            }
+            kbd {
+                border-radius: 4px;
+                display: inline-block;
+                font-size: 0.85em;
+                line-height: 1;
+                padding: 2px 4px;
+                white-space: nowrap;
+
+                background-color: #393c41;
+                border: 1px solid #494b50;
+                box-shadow: 0 -4px 0 0 #3f4247 inset;
+                color: #fff;
+                user-select: none;
+            }
+            .search-result {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                justify-content: start;
+                gap: 6px;
+                margin-bottom: 4px;
+            }
+            .search-goto {
+                width: 1.5em;
+                height: 1.5em;
+                padding: 0.25em;
+                border: 1px solid #494b50;
+                background-color: #393c41;
+                cursor: pointer;
+            }
+            .search-results {
+                
+            }
         </style>
     </head>
     <body>
+        <div id='search'>
+            <h1>module search</h1>
+            <input id="search-input"></input>
+            <h1 id="search-results-title">search results</h1>
+            <div id="search-results"></div>
+        </div>
         <div id='graph'></div>
         <div id='notes'>
             <h1>cpython {!{VERSION}!} module dependencies</h1>
@@ -116,6 +176,9 @@
             <p>red = dependencies (it imports ___)</p>
             <br>
             <p>* = probably inside a function</p>
+            <br>
+            <p><kbd>ctrl</kbd> + <kbd>f</kbd> - select search box</p>
+            <p><kbd>enter</kbd> - quick goto module</p>
             <br>
             <h1>references to</h1>
             <div id='parents'></div>
@@ -135,6 +198,9 @@
             // todo: fix injection/xss/whatever with backtick
 
             let elements = [];
+
+            let get_outgoing = {};//Object.assign({}, ...cy.nodes().map(q => ({[q.id()]: []})));
+            let get_ingoing = {};//Object.assign({}, ...cy.nodes().map(q => ({[q.id()]: []})));
 
             // nodes
             let all_module_names = [];
@@ -164,27 +230,63 @@
                             // [og_name, renamed]
                             let [og_name, renamed] = modpath;
                             if (og_name == module_name) continue;
+                            if (get_outgoing[module_name] == undefined) get_outgoing[module_name] = [];
+                            if (get_ingoing[module_name] == undefined) get_ingoing[module_name] = [];
+                            if (get_outgoing[og_name] == undefined) get_outgoing[og_name] = [];
+                            if (get_ingoing[og_name] == undefined) get_ingoing[og_name] = [];
+                            get_outgoing[module_name].push(og_name);
+                            get_ingoing[og_name].push(module_name);
                             elements.push({
                                 data: {'id': imp.import_text + '' + imp.line_num, 'source': module_name, 'target': og_name, 'label': imp.import_text}
                             });
                         }
                     } else {
                         if (imp.module_name == module_name) continue;
+                        if (get_outgoing[module_name] == undefined) get_outgoing[module_name] = [];
+                        if (get_ingoing[module_name] == undefined) get_ingoing[module_name] = [];
+                        if (get_outgoing[imp.module_name] == undefined) get_outgoing[imp.module_name] = [];
+                        if (get_ingoing[imp.module_name] == undefined) get_ingoing[imp.module_name] = [];
+                        get_outgoing[module_name].push(imp.module_name);
+                        get_ingoing[imp.module_name].push(module_name);
                         elements.push({data: {'id': imp.import_text + '' + imp.line_num, 'source': module_name, 'target': imp.module_name, 'label': imp.import_text}})
                     }
                 }
             }
+
+            // random positioning
+            position_map = {};
+            for (let key of Object.keys(get_ingoing)) {
+                position_map[key] = {x: Math.random() * 35000, y: Math.random() * 15000}
+            }
+            // general moving is top to bottom
+            for (let key of Object.keys(get_ingoing)) {
+                position_map[key].y += 2000 * get_ingoing[key].length - 4000 * get_outgoing[key].length;
+            }
+            // move all only-child nodes to be right next to their parent
+            for (let key of Object.keys(get_ingoing)) {
+                if (get_ingoing[key].length == 0 && get_outgoing[key].length == 1) {
+                    let sd = position_map[get_outgoing[key][0]];  // sole descendant (position)
+                    position_map[key] = {x: sd.x - 300, y: sd.y - 600};
+                } else if (get_ingoing[key].length == 1 && get_outgoing[key].length == 0) {
+                    let parentpos = position_map[get_ingoing[key][0]];
+                    position_map[key] = {x: parentpos.x + 300, y: parentpos.y + 600};
+                }
+            }
             
-            //console.log(cola);
             //cytoscape.use(cola);
+            // todo consider https://github.com/chuckzel/cytoscape-tidytree
             var cy = cytoscape({
                 layout: {
-                    //'name': 'breadthfirst',
-                    'name': 'random',
+                    'name': 'preset',
                     //animate: false,
 
+                    // preset
+                    'positions': (n) => {
+                        return position_map[n.id()];
+                    },
+
                     // random
-                    transform: ((node, pos) => ({x: pos.x*30, y: pos.y*30})),
+                    //transform: ((node, pos) => ({x: pos.x*30, y: pos.y*30})),
 
                     // breadthfirst
                     //directed: true,
@@ -200,12 +302,13 @@
                     //animationDuration: 300,
 
                     // cola
-                    // maxSimulationTime: 100000,
-                    // nodeSpacing: () => 50,
-                    // flow: { axis: 'y', minSeparation: 100 },
-                    // nodeDimensionsIncludeLabels: true,
-                    // randomize: true,
-                    // edgeLength: 400,
+                    //maxSimulationTime: 100000,
+                    //nodeSpacing: () => 50,
+                    //flow: { axis: 'y', minSeparation: 100 },
+                    //nodeDimensionsIncludeLabels: true,
+                    //randomize: false,
+                    //edgeLength: 400,
+                    //fit: false,
                 },
                 container: document.getElementById('graph'),
                 elements: elements,
@@ -311,6 +414,18 @@
                 ]
             });
 
+            // cola stuff
+            cy.layout({
+                'name': 'cola',
+                 maxSimulationTime: 100000,
+                 nodeSpacing: () => 50,
+                 flow: { axis: 'y', minSeparation: 100 },
+                 nodeDimensionsIncludeLabels: true,
+                 randomize: false,
+                 edgeLength: 400,  // todo better idea i have better idea
+                 fit: false,
+            })//.run()
+
             let children = document.getElementById('children');
             let parents = document.getElementById('parents');
             
@@ -322,7 +437,7 @@
 
                 let where = document.createElement('p');
                 let whereLink = document.createElement('a');
-                whereLink.innerText = filename;
+                whereLink.innerText = 'Lib/' + filename;
                 whereLink.setAttribute('href', `https://github.com/python/cpython/blob/v${data['python-version']}/Lib/${filename}#L${line_num}`)  // epic injection area
                 whereLink.setAttribute('target', '_blank');
                 //whereLink.addEventListener('click', () => {select(cy.nodes().filter(n => n.id() == node_name))})
@@ -386,6 +501,95 @@
                 const node = evt.target;
                 
                 select(node);
+            });
+
+            let searchInp = document.getElementById('search-input');
+            let searchResultsTitle = document.getElementById('search-results-title');
+            let searchResults = document.getElementById('search-results');
+
+            let searchInpFocused = false;
+            
+            let updateSearchResults = (query) => {
+                while (searchResults.firstChild) {
+                    searchResults.removeChild(searchResults.lastChild);
+                }
+                let names = cy.nodes().map(n => n.id()).filter(name => name.includes(query));  // todo use fuse.js
+                searchResultsTitle.innerText = names.length == 0 ? 'no results' : `results (${names.length})`;
+                for (let name of names) {
+                    let moduleDiv = document.createElement('div');
+                    moduleDiv.classList.add('search-result');
+                    let gotoButton = document.createElement('button');
+                    gotoButton.classList.add('search-goto');
+                    let gotoImg = document.createElement('img');
+                    gotoImg.setAttribute('src', 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48IS0tIUZvbnQgQXdlc29tZSBGcmVlIDYuNy4yIGJ5IEBmb250YXdlc29tZSAtIGh0dHBzOi8vZm9udGF3ZXNvbWUuY29tIExpY2Vuc2UgLSBodHRwczovL2ZvbnRhd2Vzb21lLmNvbS9saWNlbnNlL2ZyZWUgQ29weXJpZ2h0IDIwMjUgRm9udGljb25zLCBJbmMuLS0+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTQxNiAyMDhjMCA0NS45LTE0LjkgODguMy00MCAxMjIuN0w1MDIuNiA0NTcuNGMxMi41IDEyLjUgMTIuNSAzMi44IDAgNDUuM3MtMzIuOCAxMi41LTQ1LjMgMEwzMzAuNyAzNzZjLTM0LjQgMjUuMi03Ni44IDQwLTEyMi43IDQwQzkzLjEgNDE2IDAgMzIyLjkgMCAyMDhTOTMuMSAwIDIwOCAwUzQxNiA5My4xIDQxNiAyMDh6TTIwOCAzNTJhMTQ0IDE0NCAwIDEgMCAwLTI4OCAxNDQgMTQ0IDAgMSAwIDAgMjg4eiIvPjwvc3ZnPg==');
+                    gotoButton.appendChild(gotoImg);
+                    gotoButton.addEventListener('click', () => {
+                        cy.zoom(0.2);
+                        cy.center(cy.nodes().filter(q => q.id() == name));
+                    })
+                    let moduleNameP = document.createElement('p');
+                    moduleNameP.classList.add('search-result-module-name');
+                    if (data['deps'][name]) {
+                        let moduleNameA = document.createElement('a');
+                        moduleNameP.appendChild(moduleNameA);
+                        moduleNameA.setAttribute('href', `https://github.com/python/cpython/blob/v${data['python-version']}/Lib/${name}.py`);
+                        moduleNameA.innerText = name
+                        moduleNameA.setAttribute('target', '_blank');
+                    } else {
+                        moduleNameP.innerText = name;
+                    }
+                    moduleDiv.appendChild(gotoButton);
+                    moduleDiv.appendChild(moduleNameP);
+                    searchResults.appendChild(moduleDiv);
+                }
+            }
+
+            searchInp.addEventListener('focus', (e) => { searchInpFocused = true; });
+            searchInp.addEventListener('blur', (e) => { searchInpFocused = false; });
+            searchInp.addEventListener('keydown', (e) => {
+                let query = searchInp.value;
+                if (e.code == 'Enter') {
+                    let names = cy.nodes().map(n => n.id()).filter(name => name.includes(query));
+                    if (names.length > 0) {
+                        let name = names[0];
+                        if (names.includes(query)) {
+                            name = query;
+                        }
+                        cy.zoom(0.2);
+                        cy.center(cy.nodes().filter(q => q.id() == name));
+                    }
+                }
+                setTimeout(() => {  // legendary jank
+                    let query = searchInp.value;
+                    if (query.length == 0) {
+                        searchResultsTitle.style.display = 'none';
+                        searchResults.style.display = 'none';
+                    } else {
+                        searchResultsTitle.style.display = 'block';
+                        searchResults.style.display = 'block';
+                        updateSearchResults(query);
+                    }
+                }, 1);
+            });
+            if (searchInp.value.length == 0) {
+                searchResultsTitle.style.display = 'none';
+                searchResults.style.display = 'none';
+            } else {
+                updateSearchResults(searchInp.value);
+            }
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key == 'f' && e.ctrlKey) {
+                    if (!searchInpFocused) {
+                        searchInp.selectionStart = 0;
+                        searchInp.selectionEnd = 1000;
+                        searchInp.focus();
+                        e.preventDefault();
+                        return false;
+                    } else {
+                        searchInp.blur()
+                    }
+                }
             });
         </script>
     </body>
