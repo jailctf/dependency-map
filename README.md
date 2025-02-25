@@ -13,8 +13,10 @@ if we are in module A and we want to get module B on python version 3.X.X, we ca
 ## todo
 
 - go into nested folders of cpython/Lib (handle os.path properly)
-- ctrl-f for nodes
-- better graph
+- better-er graph
+- fix zoom button if you get lost
+- toggle for keeping non-root level deps in graph
+- fix non-root level deps try-catch detection
 - click on button for whatever.py ref to select the node
 - api? idk what this would entail
 - easy script to run to get module dependencies for non-builtin module

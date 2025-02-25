@@ -105,6 +105,8 @@
                 border-bottom: 1px solid #aaa;
             }
             #search {
+                max-height: 100%;
+                overflow-y: auto;
                 position: absolute;
                 max-width: 20%;
                 padding-right: 16px;
@@ -155,9 +157,6 @@
                 background-color: #393c41;
                 cursor: pointer;
             }
-            .search-results {
-                
-            }
         </style>
     </head>
     <body>
@@ -178,6 +177,7 @@
             <p>* = probably inside a function</p>
             <br>
             <p><kbd>ctrl</kbd> + <kbd>f</kbd> - select search box</p>
+            <br>
             <p><kbd>enter</kbd> - quick goto module</p>
             <br>
             <h1>references to</h1>
@@ -186,9 +186,11 @@
             <div id='children'></div>
         </div>
 
+        <!-- todo remove useless -->
         <script src="cytoscape.min.js"></script>
         <script src="https://unpkg.com/webcola/WebCola/cola.min.js"></script>
         <script src="https://cdn.jsdelivr.net/gh/cytoscape/cytoscape.js-cose-bilkent@1.6.5/cytoscape-cose-bilkent.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/cytoscape-tidytree/dist/cytoscape-tidytree.js"></script>
         <script src="cytoscape-cola.js"></script>
         <script src="https://unpkg.com/layout-base/layout-base.js"></script>
         <script src="https://unpkg.com/cose-base/cose-base.js"></script>
@@ -256,12 +258,13 @@
             // random positioning
             position_map = {};
             for (let key of Object.keys(get_ingoing)) {
-                position_map[key] = {x: Math.random() * 35000, y: Math.random() * 15000}
+                let ingoing_count = get_ingoing[key].length + 1;
+                position_map[key] = {x: (Math.random()-(0.5)) * 55000 / ingoing_count, y: (Math.random()-(0.5)) * 55000 / ingoing_count}
             }
             // general moving is top to bottom
-            for (let key of Object.keys(get_ingoing)) {
-                position_map[key].y += 2000 * get_ingoing[key].length - 4000 * get_outgoing[key].length;
-            }
+            // for (let key of Object.keys(get_ingoing)) {
+            //     position_map[key].y += 2000 * get_ingoing[key].length - 4000 * get_outgoing[key].length;
+            // }
             // move all only-child nodes to be right next to their parent
             for (let key of Object.keys(get_ingoing)) {
                 if (get_ingoing[key].length == 0 && get_outgoing[key].length == 1) {
@@ -417,14 +420,18 @@
             // cola stuff
             cy.layout({
                 'name': 'cola',
-                 maxSimulationTime: 100000,
-                 nodeSpacing: () => 50,
-                 flow: { axis: 'y', minSeparation: 100 },
-                 nodeDimensionsIncludeLabels: true,
-                 randomize: false,
-                 edgeLength: 400,  // todo better idea i have better idea
-                 fit: false,
-            })//.run()
+                maxSimulationTime: 100000,
+                nodeSpacing: () => 30,
+                nodeDimensionsIncludeLabels: false,
+                convergenceThreshold: 1,
+                randomize: false,
+                edgeLength: ((e) => {
+                    let res = Math.pow((get_outgoing[e.source().id()].length-1)*(get_ingoing[e.target().id()].length-1), 0.75)*100+200;
+                    console.log(e.source().id(), e.target().id(), res);
+                    return res;
+                }),  // todo better idea i have better idea
+                fit: false,
+            }).run()
 
             let children = document.getElementById('children');
             let parents = document.getElementById('parents');
@@ -557,6 +564,7 @@
                         }
                         cy.zoom(0.2);
                         cy.center(cy.nodes().filter(q => q.id() == name));
+                        searchInp.blur();
                     }
                 }
                 setTimeout(() => {  // legendary jank
