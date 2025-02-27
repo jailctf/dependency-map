@@ -69,6 +69,7 @@
                 width: 80%;
                 height: 100%;
                 background-color: #313338;
+                position: relative;
             }
             #notes {
                 width: calc(20% - 13px);
@@ -157,6 +158,30 @@
                 background-color: #393c41;
                 cursor: pointer;
             }
+            #anim-controls {
+                position: absolute;
+                right: 12px;
+                top: 12px;
+                z-index: 10000;
+                display: flex;
+                gap: 5px;
+            }
+            #play, #pause {
+                width: 2em;
+                height: 2em;
+                padding: 0.25em;
+                border: 1px solid #494b50;
+                background-color: #393c41;
+                cursor: pointer;
+            }
+            #pause img {
+                height: 90%;
+                transform: translateY(1px);
+            }
+            #play img {
+                height: 75%;
+                transform: translateX(1px);
+            }
         </style>
     </head>
     <body>
@@ -166,7 +191,16 @@
             <h1 id="search-results-title">search results</h1>
             <div id="search-results"></div>
         </div>
-        <div id='graph'></div>
+        <div id='graph'>
+            <div id="anim-controls">
+                <button id="play" title="play force-directed animation">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzODQgNTEyIj48IS0tIUZvbnQgQXdlc29tZSBGcmVlIDYuNy4yIGJ5IEBmb250YXdlc29tZSAtIGh0dHBzOi8vZm9udGF3ZXNvbWUuY29tIExpY2Vuc2UgLSBodHRwczovL2ZvbnRhd2Vzb21lLmNvbS9saWNlbnNlL2ZyZWUgQ29weXJpZ2h0IDIwMjUgRm9udGljb25zLCBJbmMuLS0+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTczIDM5Yy0xNC44LTkuMS0zMy40LTkuNC00OC41LS45UzAgNjIuNiAwIDgwTDAgNDMyYzAgMTcuNCA5LjQgMzMuNCAyNC41IDQxLjlzMzMuNyA4LjEgNDguNS0uOUwzNjEgMjk3YzE0LjMtOC43IDIzLTI0LjIgMjMtNDFzLTguNy0zMi4yLTIzLTQxTDczIDM5eiIvPjwvc3ZnPg=="/>
+                </button>  <!-- todo images -->
+                <button id="pause" title="pause force-directed animation">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMjAgNTEyIj48IS0tIUZvbnQgQXdlc29tZSBGcmVlIDYuNy4yIGJ5IEBmb250YXdlc29tZSAtIGh0dHBzOi8vZm9udGF3ZXNvbWUuY29tIExpY2Vuc2UgLSBodHRwczovL2ZvbnRhd2Vzb21lLmNvbS9saWNlbnNlL2ZyZWUgQ29weXJpZ2h0IDIwMjUgRm9udGljb25zLCBJbmMuLS0+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTQ4IDY0QzIxLjUgNjQgMCA4NS41IDAgMTEyTDAgNDAwYzAgMjYuNSAyMS41IDQ4IDQ4IDQ4bDMyIDBjMjYuNSAwIDQ4LTIxLjUgNDgtNDhsMC0yODhjMC0yNi41LTIxLjUtNDgtNDgtNDhMNDggNjR6bTE5MiAwYy0yNi41IDAtNDggMjEuNS00OCA0OGwwIDI4OGMwIDI2LjUgMjEuNSA0OCA0OCA0OGwzMiAwYzI2LjUgMCA0OC0yMS41IDQ4LTQ4bDAtMjg4YzAtMjYuNS0yMS41LTQ4LTQ4LTQ4bC0zMiAweiIvPjwvc3ZnPg=="/>
+                </button>
+            </div>
+        </div>
         <div id='notes'>
             <h1>cpython {!{VERSION}!} module dependencies</h1>
             <p>made by <a href="https://github.com/quasar098" target="_blank">quasar098</a></p>
@@ -417,21 +451,32 @@
                 ]
             });
 
-            // cola stuff
-            cy.layout({
+            let colaOptions = {
                 'name': 'cola',
-                maxSimulationTime: 100000,
                 nodeSpacing: () => 30,
                 nodeDimensionsIncludeLabels: false,
                 convergenceThreshold: 1,
                 randomize: false,
                 edgeLength: ((e) => {
                     let res = Math.pow((get_outgoing[e.source().id()].length-1)*(get_ingoing[e.target().id()].length-1), 0.75)*100+200;
-                    console.log(e.source().id(), e.target().id(), res);
+                    //console.log(e.source().id(), e.target().id(), res);
                     return res;
-                }),  // todo better idea i have better idea
-                fit: false,
-            }).run()
+                }),
+                fit: false
+            }
+
+            // cola stuff
+            let layout = cy.layout({maxSimulationTime: 100000, ...colaOptions});
+            layout.run();
+
+            let play = document.getElementById('play');
+            let pause = document.getElementById('pause');
+            play.addEventListener('click', () => {
+                layout.run();
+            })
+            pause.addEventListener('click', () => {
+                layout.stop();
+            })
 
             let children = document.getElementById('children');
             let parents = document.getElementById('parents');
@@ -555,6 +600,9 @@
             searchInp.addEventListener('blur', (e) => { searchInpFocused = false; });
             searchInp.addEventListener('keydown', (e) => {
                 let query = searchInp.value;
+                if (e.code == 'Escape') {
+                    searchInp.blur();
+                }
                 if (e.code == 'Enter') {
                     let names = cy.nodes().map(n => n.id()).filter(name => name.includes(query));
                     if (names.length > 0) {

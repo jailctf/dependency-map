@@ -51,30 +51,7 @@ def switch_to_tag(tag: str) -> None:
     resp = subprocess.check_output(['git', 'checkout', f'tags/v{tag}'], cwd='cpython')
 
 
-def main():
-    if os.name != "posix":
-        print('you need to do this on linux or whatever')
-        exit(1)
-    if (not os.path.isdir('cpython')) or (not os.path.isdir('cpython/.git')):
-        print('please run: git clone https://github.com/python/cpython')
-        print('this will download the cpython source in the "cpython" directory')
-        print('run this script again after that')
-        exit(1)
-    versions = get_all_cpython_tags()
-    flattened_versions = [v for l in versions for v in l]
-    print('all python versions')
-    print('=' * 60)
-    print('\n'.join(['* ' + ', '.join(lv) for lv in versions]))
-    selected_ver = '?'
-    while True:
-        print('\nchoose a version\n(input nothing for latest version)\n')
-        selected_ver = input('> ')
-        if selected_ver == '':
-            selected_ver = versions[-1][-1]
-        if selected_ver not in flattened_versions:
-            print(f'"{selected_ver}" is not a valid version')
-            continue
-        break
+def export_version(selected_ver):
     switch_to_tag(selected_ver)
     if DEEP_CHECK:
         print('time to build cpython')
@@ -125,6 +102,41 @@ def main():
     print(f'successfully exported as {exp_fname}')
     print(f'you may want to run generate_website.py to generate a visualized version of this')
 
+
+def main():
+    if os.name != "posix":
+        print('you need to do this on linux or whatever')
+        exit(1)
+    if (not os.path.isdir('cpython')) or (not os.path.isdir('cpython/.git')):
+        print('please run: git clone https://github.com/python/cpython')
+        print('this will download the cpython source in the "cpython" directory')
+        print('run this script again after that')
+        exit(1)
+    versions = get_all_cpython_tags()
+    flattened_versions = [v for l in versions for v in l]
+    print('all python versions')
+    print('=' * 60)
+    print('\n'.join(['* ' + ', '.join(lv) for lv in versions]))
+    selected_ver = '?'
+    while True:
+        print('\nchoose a version\n(input nothing for latest version)\n(input "common" for all versions 3.9.0+)\n')
+        selected_ver = input('> ')
+        if selected_ver == '':
+            selected_ver = versions[-1][-1]
+        if selected_ver == 'common':
+            common_starting_index = 0
+            while versions[common_starting_index][0] != '3.9.0':
+                common_starting_index += 1
+            common_versions = [v for vlist in versions[common_starting_index:] for v in vlist]
+            for ver in common_versions:
+                export_version(ver)
+            break
+        if selected_ver not in flattened_versions:
+            print(f'"{selected_ver}" is not a valid version')
+            continue
+        export_version(selected_ver)
+        break
+    
 
 if __name__ == "__main__":
     main()

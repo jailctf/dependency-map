@@ -3,32 +3,7 @@ import shutil  # probably should have been using this but whatever
 import json
 
 
-def main():
-    if not os.path.isdir(os.path.join('exports', 'json')):
-        print('there are no exports in ./exports/json')
-        exit(1)
-    else:
-        json_exports = [f for f in os.listdir(os.path.join('exports', 'json')) if f.endswith('.json')]
-    json_exports = list(sorted(json_exports, reverse=True))
-    print('export files')
-    print('=' * 60)
-    print('\n'.join('* ' + fname for fname in json_exports[:15]))
-    if len(json_exports) > 15:
-        print(f'... ({len(json_exports)-15} hidden) ...')
-    print()
-    print('choose an export file')
-    print('(input nothing for latest export file)')
-    print()
-    inp = ''
-    while True:
-        if inp != '':
-            print(f'"{inp}" is not a valid export file')
-        inp = input('> ')
-        if inp in json_exports:
-            break
-        if inp == '':
-            inp = json_exports[0]
-            break
+def gen_website(inp):
     print('generating website from template.html')
     with open(os.path.join('exports', 'json', inp), 'r') as f:
         data_str = json.dumps(json.load(f))
@@ -43,6 +18,41 @@ def main():
         f.write(template_used)
     print(f'successfully exported as {html_file_path}')
     print(f'you may want to run "python3 -m http.server 8080 -d exports/web" to be able to access it easily')
+
+
+def main():
+    if not os.path.isdir(os.path.join('exports', 'json')):
+        print('there are no exports in ./exports/json')
+        exit(1)
+    else:
+        json_exports = [f for f in os.listdir(os.path.join('exports', 'json')) if f.endswith('.json')]
+    json_exports = list(sorted(json_exports, reverse=True))
+    print('export files')
+    print('=' * 60)
+    print('\n'.join('* ' + fname for fname in json_exports[:15]))
+    if len(json_exports) > 15:
+        print(f'... ({len(json_exports)-15} hidden) ...')
+    print()
+    print('choose an export file')
+    print('(input nothing for latest export file)')  # idk if latest lol
+    print('(input "all" for all export files)')
+    print()
+    inp = ''
+    while True:
+        if inp != '':
+            print(f'"{inp}" is not a valid export file')
+        inp = input('> ')
+        if inp in json_exports:
+            gen_website(inp)
+            break
+        if inp == 'all':
+            for export_file in json_exports:
+                gen_website(export_file)
+            break
+        if inp == '':
+            inp = json_exports[0]
+            gen_website(inp)
+            break
 
 
 if __name__ == '__main__':
