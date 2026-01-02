@@ -51,7 +51,6 @@ def gen_website(inp):
     with open(html_file_path, 'w') as f:
         f.write(template_used)
     print(f'successfully exported as {html_file_path}')
-    print(f'you may want to run "python3 -m http.server 8080 -d exports/web" to be able to access it easily')
 
 
 def main():
@@ -97,10 +96,11 @@ def main():
             if version_split[:2] not in per_version_htmls:
                 per_version_htmls[version_split[:2]] = []
             per_version_htmls[version_split[:2]].append(f'<a href="{version.removesuffix(".json")}.html" target="_blank">{version.removesuffix(".json")}</a>')
-        pages_html = '<br>'.join(sorted(['<p>' + ', '.join(per_version_htmls[v]) + '</p>' for v in per_version_htmls], reverse=True))
+        pages_html = '<br>'.join(['<p>' + ', '.join(per_version_htmls[v]) + '</p>' for v in sorted(per_version_htmls, reverse=True)])
         index_html = index_html.replace('{!{PAGESHTML}!}', pages_html)
         f.write(index_html)
     print('successfully generated index.html')
+    print(f'you may want to run "python3 -m http.server 8080 -d exports/web" to be able to access it easily')
 
 
 if __name__ == '__main__':
